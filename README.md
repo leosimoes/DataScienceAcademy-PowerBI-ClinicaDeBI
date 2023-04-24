@@ -3,6 +3,7 @@ Atividades do curso Análise de Dados com Microsoft Power BI e Clínica de BI da
 
 ## Projetos
 Os projetos desenvolvidos durante este curso foram:
+- Lab 2 - Power BI Para Análise de Dados Financeiros Armazenados em Data Lake.
 
 ## Arquivos 
 As pastas dos projetos contém arquivos .pbix dos dashboards, e imagens em arquivos .png dos dashboards e dos formatos de dados. 

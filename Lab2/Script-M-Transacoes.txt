@@ -1,0 +1,45 @@
+// Lab 2 - Power BI Para Análise de Dados Financeiros Armazenados em Data Lake
+// Data: 24/04/2023
+// Estudante: Leonardo Simões
+
+let
+    // Diretório do Arquivo
+    ARQUIVO = "D:\Projetos\PowerBI\DataScienceAcademy-PowerBI-ClinicaDeBI\Lab2\transacoes.json",
+
+    // Etapa 1 - Fonte - Carregamento dos dados
+    #"1 - Fonte" = Table.FromColumns({Lines.FromBinary(File.Contents(ARQUIVO), null, null)}),
+
+    // Etapa 2
+    #"2 - Tabela Transformada" = Table.TransformColumns(#"1 - Fonte", {"Column1", Json.Document}),
+
+    // Etapa 3
+    #"3 - Tabela Expandida" = Table.ExpandRecordColumn(#"2 - Tabela Transformada", "Column1", 
+    {"_id", "account_id", "transaction_count", "bucket_start_date", "bucket_end_date", "transactions"}, {"_id", "account_id", "transaction_count", "bucket_start_date", "bucket_end_date", "transactions"}),
+
+    // Etapa 4
+    #"4 - _id Expandido" = Table.ExpandRecordColumn(#"3 - Tabela Expandida", "_id", {"$oid"}, {"_id.$oid"}),
+
+    // Etapa 5
+    #"5 - account_id Expandido" = Table.ExpandRecordColumn(#"4 - _id Expandido", "account_id", {"$numberInt"}, {"account_id.$numberInt"}),
+
+    // Etapa 6
+    #"6 - transactions Expandido" = Table.ExpandListColumn(#"5 - account_id Expandido", "transactions"),
+
+    // Etapa 7
+    #"7 - transactions Expandido1" = Table.ExpandRecordColumn(#"6 - transactions Expandido", "transactions", {"date", "amount", "transaction_code", "symbol", "price", "total"}, 
+    {"transactions.date", "transactions.amount", "transactions.transaction_code", "transactions.symbol", "transactions.price", "transactions.total"}),
+
+    // Etapa 8
+    #"8 - transactions.amount Expandido" = Table.ExpandRecordColumn(#"7 - transactions Expandido1", "transactions.amount", {"$numberInt"}, {"transactions.amount.$numberInt"}),
+
+    // Etapa 9
+    #"9 - Colunas Removidas" = Table.RemoveColumns(#"8 - transactions.amount Expandido",{"transaction_count", "bucket_start_date", "bucket_end_date", "transactions.date"}),
+
+    // Etapa 10
+    #"10 - Colunas Renomeadas" = Table.RenameColumns(#"9 - Colunas Removidas",{{"_id.$oid", "_id"}, {"account_id.$numberInt", "account_id"}, {"transactions.amount.$numberInt", "amount"},
+     {"transactions.transaction_code", "transaction_code"}, {"transactions.symbol", "symbol"}, {"transactions.price", "price"}, {"transactions.total", "total"}}),
+
+    // Etapa 11    
+    #"11 - Tipo Alterado" = Table.TransformColumnTypes(#"10 - Colunas Renomeadas",{{"amount", Int64.Type}, {"price", type number}, {"total", type number}})
+in
+    #"11 - Tipo Alterado"

@@ -1,0 +1,72 @@
+// Lab 2 - Power BI Para Análise de Dados Financeiros Armazenados em Data Lake
+// Data: 24/04/2023
+// Estudante: Leonardo Simões
+
+let
+    // Diretório do Arquivo
+    ARQUIVO = "D:\Projetos\PowerBI\DataScienceAcademy-PowerBI-ClinicaDeBI\Lab2\contas.json",
+
+    // Etapa 1 - Fonte - Carregamento dos dados
+    #"1 - Fonte" = Table.FromColumns({Lines.FromBinary(File.Contents(ARQUIVO), null, null)}),
+
+    // Etapa 2 
+    #"2 - Tabela Transformada" = Table.TransformColumns(#"1 - Fonte", {"Column1", Json.Document}),
+
+    // Etapa 3
+    #"3 - Tabela Expandido" = Table.ExpandRecordColumn(#"2 - Tabela Transformada", "Column1", {"_id", "account_id", "limit", "products"}, {"_id", "account_id", "limit", "products"}),
+
+    // Etapa 4
+    #"4 - _id Expandido" = Table.ExpandRecordColumn(#"3 - Tabela Expandido", "_id", {"$oid"}, {"_id.$oid"}),
+
+    // Etapa 5
+    #"5 - account_id Expandido" = Table.ExpandRecordColumn(#"4 - _id Expandido", "account_id", {"$numberInt"}, {"account_id.$numberInt"}),
+
+    // Etapa 6
+    #"6 - limit Expandido" = Table.ExpandRecordColumn(#"5 - account_id Expandido", "limit", {"$numberInt"}, {"limit.$numberInt"}),
+
+    // Etapa 7
+    #"7 - Valores de Limit Extraídos" = Table.TransformColumns(#"6 - limit Expandido", {"products", each Text.Combine(List.Transform(_, Text.From), ","), type text}),
+
+    // Etapa 8
+    #"8 - Dividir Coluna por Delimitador" = Table.SplitColumn(#"7 - Valores de Limit Extraídos", "products", Splitter.SplitTextByDelimiter(",", QuoteStyle.Csv), {"products.1", "products.2", "products.3", "products.4", "products.5"}),
+
+    // Etapa 9 
+    #"9 - Coluna Brokerage Adicionada" = Table.AddColumn(#"8 - Dividir Coluna por Delimitador", "Brokerage", each if [products.1] = "Brokerage" then 1 else if [products.2] = "Brokerage" then 1 else if [products.3] = "Brokerage" then 1 else if [products.4] = "Brokerage" then 1 else if [products.5] = "Brokerage" then 1 else 0),
+
+    // Etapa 10
+    #"10 - Coluna Commodity Adicionada" = Table.AddColumn(#"9 - Coluna Brokerage Adicionada", "Commodity", each if [products.1] = "Commodity" then 1 else if [products.2] = "Commodity" then 1 else if [products.3] = "Commodity" then 1 else if [products.4] = "Commodity" then 1 else if [products.5] = "Commodity" then 1 else 0),
+
+    // Etapa 11
+    #"11 - Coluna CurrencyService Adicionada" = Table.AddColumn(#"10 - Coluna Commodity Adicionada", "CurrencyService", each if [products.1] = "CurrencyService" then 1 else if [products.2] = "CurrencyService" then 1 else if [products.3] = "CurrencyService" then 1 else if [products.4] = "CurrencyService" then 1 else if [products.5] = "CurrencyService" then 1 else 0),
+
+    // Etapa 12
+    #"12 - Coluna Derivatives Adicionada" = Table.AddColumn(#"11 - Coluna CurrencyService Adicionada", "Derivatives", each if [products.1] = "Derivatives" then 1 else if [products.2] = "Derivatives" then 1 else if [products.3] = "Derivatives" then 1 else if [products.4] = "Derivatives" then 1 else if [products.5] = "Derivatives" then 1 else 0),
+
+    // Etapa 13
+    #"13 - Coluna InvestmentFund Adicionada" = Table.AddColumn(#"12 - Coluna Derivatives Adicionada", "InvestmentFund", each if [products.1] = "InvestmentFund" then 1 else if [products.2] = "InvestmentFund" then 1 else if [products.3] = "InvestmentFund" then 1 else if [products.4] = "InvestmentFund" then 1 else if [products.5] = "InvestmentFund" then 1 else 0),
+
+    // Etapa 14
+    #"14 - Coluna InvestmentStock Adicionada" = Table.AddColumn(#"13 - Coluna InvestmentFund Adicionada", "InvestmentStock", each if [products.1] = "InvestmentStock" then 1 else if [products.2] = "InvestmentStock" then 1 else if [products.3] = "InvestmentStock" then 1 else if [products.4] = "InvestmentStock" then 1 else if [products.5] = "InvestmentStock" then 1 else 0),
+
+    // Etapa 15
+    #"15 - Colunas de Nomes de Produtos Removidas" = Table.RemoveColumns(#"14 - Coluna InvestmentStock Adicionada",{"products.1", "products.2", "products.3", "products.4", "products.5"}),
+
+    // Etapa 16
+    #"16 - Colunas id e account_id Renomeadas" = Table.RenameColumns(#"15 - Colunas de Nomes de Produtos Removidas",{{"_id.$oid", "_id"}, {"account_id.$numberInt", "account_id"}, {"limit.$numberInt", "limit"}}),
+
+    // Etapa 17
+    #"17 - Coluna de Quantidade de Produtos Adicionada" = Table.AddColumn(#"16 - Colunas id e account_id Renomeadas", "Produtos", each [Brokerage] + [Commodity] + [CurrencyService] + [Derivatives] + [InvestmentFund] +[InvestmentStock]),
+
+    // Etapa 18
+    #"18 - Tipo dos Produtos Alterados para Texto" = Table.TransformColumnTypes(#"17 - Coluna de Quantidade de Produtos Adicionada",{{"Brokerage", type text}, {"Commodity", type text}, {"CurrencyService", type text}, {"Derivatives", type text}, {"InvestmentFund", type text}, {"InvestmentStock", type text}}),
+
+    // Etapa 19
+    #"19 - Valor 1 Substituído por Sim" = Table.ReplaceValue(#"18 - Tipo dos Produtos Alterados para Texto","1","Sim",Replacer.ReplaceText,{"Brokerage", "Commodity", "CurrencyService", "Derivatives", "InvestmentFund", "InvestmentStock"}),
+
+    // Etapa 20
+    #"20 - Valor 0 Substituído por Nao" = Table.ReplaceValue(#"19 - Valor 1 Substituído por Sim","0","Não",Replacer.ReplaceText,{"Brokerage", "Commodity", "CurrencyService", "Derivatives", "InvestmentFund", "InvestmentStock"}),
+
+    // Etapa 21
+    #"21 - Duplicatas de account_id Removidas" = Table.Distinct(#"20 - Valor 0 Substituído por Nao", {"account_id"})
+in
+    #"21 - Duplicatas de account_id Removidas"

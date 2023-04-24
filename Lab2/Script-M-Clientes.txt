@@ -1,0 +1,47 @@
+// Lab 2 - Power BI Para Análise de Dados Financeiros Armazenados em Data Lake
+// Data: 24/04/2023
+// Estudante: Leonardo Simões
+
+let
+    // Diretório do Arquivo
+    ARQUIVO = "D:\Projetos\PowerBI\DataScienceAcademy-PowerBI-ClinicaDeBI\Lab2\clientes.json",
+
+    // Etapa 1
+    #"1 - Fonte" = Table.FromColumns({Lines.FromBinary(File.Contents(ARQUIVO), null, null)}),
+
+    // Etapa 2 
+    #"2 - Tabela Transformada" = Table.TransformColumns(#"1 - Fonte", {"Column1", Json.Document}),
+
+    // Etapa 3
+    #"3 - Tabela Expandida" = Table.ExpandRecordColumn(#"2 - Tabela Transformada", "Column1", 
+    {"_id", "username", "name", "address", "birthdate", "email", "active", "accounts", "tier_and_details"}, {"_id", "username", "name", "address", "birthdate", "email", "active", "accounts", "tier_and_details"}),
+    
+    // Etapa 4
+    #"4 - _id Expandido" = Table.ExpandRecordColumn(#"3 - Tabela Expandida", "_id", {"$oid"}, {"_id.$oid"}),
+
+    // Etapa 5
+    #"5 - Colunas Removidas" = Table.RemoveColumns(#"4 - _id Expandido",{"tier_and_details", "active", "birthdate"}),
+    
+    // Etapa 6
+    #"6 - accounts Expandido" = Table.ExpandListColumn(#"5 - Colunas Removidas", "accounts"),
+    
+    // Etapa 7
+    #"7 - accounts Expandido 2" = Table.ExpandRecordColumn(#"6 - accounts Expandido", "accounts", {"$numberInt"}, {"accounts.$numberInt"}),
+    
+   // Etapa 8
+    #"8 - Extrair postal_code" = Table.SplitColumn(#"7 - accounts Expandido 2", "address", Splitter.SplitTextByEachDelimiter({" "}, QuoteStyle.Csv, true), {"address.1", "address.2"}),
+    
+    // Etapa 9
+    #"9 - Extrair state" = Table.SplitColumn(#"8 - Extrair postal_code", "address.1", Splitter.SplitTextByEachDelimiter({", "}, QuoteStyle.Csv, true), {"address.1.1", "address.1.2"}),
+    
+    // Etapa 10
+    #"10 - Preencher state vazio" = Table.ReplaceValue(#"9 - Extrair state",null,"Uninformed",Replacer.ReplaceValue,{"address.1.2"}),
+    
+    // Etapa 11
+    #"11 - Extrair email_provider" = Table.AddColumn(#"10 - Preencher state vazio", "Texto Entre os Delimitadores", each Text.BetweenDelimiters([email], "@", "."), type text),
+    
+    // Etapa 12
+    #"12 - Colunas Renomeadas" = Table.RenameColumns(#"11 - Extrair email_provider",
+    {{"address.1.1", "address"}, {"address.1.2", "state"}, {"address.2", "postal_code"}, {"Texto Entre os Delimitadores", "email_provider"}, {"_id.$oid", "_id"}, {"accounts.$numberInt", "account_id"}})
+in
+    #"12 - Colunas Renomeadas"
